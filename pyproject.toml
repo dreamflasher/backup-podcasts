@@ -1,0 +1,56 @@
+[tool.poetry]
+name = "podcast-backup"
+version = "0.1.0"
+description = "Backup/archive all episodes of your podcast subscriptions locally."
+authors = ["DreamFlasher <31695+dreamflasher@users.noreply.github.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+fire = "^0.5.0"
+tqdm = "^4.64.1"
+defusedxml = "^0.7.1"
+feedparser = "^6.0.10"
+parfive = "^2.0.2"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+yapf = "^0.32.0"
+wemake-python-styleguide = "^0.17.0"
+tqdm-stubs = "^0.2.1"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.mypy]
+disallow_untyped_defs = "True"
+implicit_reexport = "True"
+ignore_missing_imports = "True"
+
+[tool.pylint.messages_control]
+disable = "C0103"
+
+[tool.pylint.format]
+max-line-length = 160
+
+[tool.yapf]
+based_on_style = "pep8"
+column_limit = 160
+split_penalty_for_added_line_split = 9999
+split_penalty_excess_character = 99999
+each_dict_entry_on_separate_line = "False"
+disable_ending_comma_heuristic = "True"
+coalesce_brackets = "True"
+split_before_dot = "True"
+split_before_arithmetic_operator = "True"
+space_between_ending_comma_and_closing_bracket = "False"
+blank_line_before_nested_class_or_def = "True"
+arithmetic_precedence_indication = "True"
+allow_multiline_lambdas = "True"
+allow_multiline_dictionary_keys = "True"
+split_before_dict_set_generator = "False"
+split_before_named_assigns = "False"
+split_before_closing_bracket = "False"
+continuation_align_style = "SPACE"
+continuation_indent_width = 4
+allow_split_before_default_or_named_assigns = "False"
