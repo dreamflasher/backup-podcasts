@@ -6,51 +6,64 @@ import logging
 import sys
 import time
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 import feedparser
 import fire
-from aiohttp import ClientTimeout
+from aiohttp import ClientSession
 from defusedxml import ElementTree
 from parfive import Downloader, SessionConfig
 from tqdm import tqdm
 
+
+def _aiohttp_session(config: SessionConfig) -> ClientSession:
+	"""
+	Create aiohttp session, ignore config.
+
+	Args:
+		config: Session config, will be ignored.
+	"""
+	return ClientSession(headers={'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:108.0) Gecko/20100101 Firefox/108.0"}, requote_redirect_url=False)
+
+
 cwd = Path().absolute()
 asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-dl = Downloader(max_splits=1, config=SessionConfig(timeouts=ClientTimeout(sock_read=32)), overwrite=True)
-logging.basicConfig(level=logging.INFO, format=u"%(asctime)s %(levelname)s %(message)s", handlers=[
-	logging.FileHandler("backup.log", "a", "utf-8"), logging.StreamHandler(sys.stdout)])
+dl = Downloader(max_splits=1, overwrite=True, config=SessionConfig(aiohttp_session_generator=_aiohttp_session))
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", handlers=[
+	logging.FileHandler("backup.log", "w", "utf-8"), logging.StreamHandler(sys.stdout)])
 log = logging.getLogger(__name__)
 
 
-def sanitize_filename(filename: str, max_file_length: int = 256) -> str:
+def sanitize_filename(filename: str, max_file_length_byte: int = 255) -> str:
 	"""
 	Replace illegal characters in filename.
 
 	Args:
 		filename: Filename.
-		max_file_length: Maximum filename length.
+		max_file_length_byte: Maximum filename length in bytes (default for most file systems is 255).
 
 	Returns:
 		Sanitized filename.
 	"""
+	filename = " ".join(filename.split())  # replace multiple (non-standard) whitespaces by space
 	replacements = {
 		"/": "\N{division slash}", "\\": "\N{reverse solidus operator}", ":": "\N{ratio}", "*": "\N{low asterisk}", "?": "\N{interrobang}", "\"": "'", "<":
 		"\N{canadian syllabics pa}", ">": "\N{canadian syllabics po}", "|": "\N{vertical line extension}"}
 	for old, new in replacements.items():
 		filename = filename.replace(old, new)
-	filename = filename.translate(dict.fromkeys(range(2**5))).strip()
+	filename = filename.translate(dict.fromkeys(range(2**5)))  # strip non-printable (<32)
 
 	if "." in filename:
 		stem, extension = filename.rsplit(".", 1)
 		filename = f"{stem.strip().strip('. ')}.{extension.strip()}"
 
-	if len(filename) > max_file_length:
+	if len(filename.encode('utf8')) > max_file_length_byte:
+		max_length_in_str = len(filename.encode('utf8', errors="replace")[:max_file_length_byte].decode('utf8', errors="ignore"))
 		if "." in filename:
 			extension = filename.split(".")[-1]
-			episode_name = f"{filename[:max_file_length-len(extension)]}.{extension}"
+			filename = f"{filename[:max_length_in_str-len(extension)]}.{extension}"
 		else:
-			episode_name = episode_name[:max_file_length]
+			filename = filename[:max_length_in_str]
 
 	return filename
 
@@ -150,10 +163,9 @@ def backup_feed(feed_url: str, destination: Path) -> None:
 		feed_url: Feed URL.
 		destination: Path to destination folder.
 	"""
-	log.info(f"Backup feed: {feed_url}")
 	rss: Dict = feedparser.parse(feed_url)
 	title = rss["feed"]["title"]
-	log.info(f'Processing feed: {title}')
+	log.info(f'Backup feed: {title} ({feed_url})')
 	backup_path = destination / sanitize_filename(title)
 	backup_path.mkdir(parents=True, exist_ok=True)
 	backup_meta_path = backup_path / "meta"
@@ -179,6 +191,18 @@ def backup_feed(feed_url: str, destination: Path) -> None:
 		for completed in download_results:
 			Path(completed).rename(backup_path / Path(completed).name)
 		backup_metadata(feed_url, rss, backup_meta_path)
+
+
+def tqdm_updater(progress_bar: Any) -> None:
+	"""
+	Update tqdm progress bar every second.
+
+	Args:
+		progress_bar: tqdm progress bar.
+	"""
+	while True:  # noqa: WPS457
+		time.sleep(1000)
+		progress_bar.refresh()
 
 
 def backup_opml(opml: Path, destination: Path = cwd) -> None:
