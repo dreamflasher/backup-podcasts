@@ -12,8 +12,9 @@ import feedparser
 import fire
 from aiohttp import ClientSession
 from defusedxml import ElementTree
-from parfive import Downloader, SessionConfig
 from tqdm import tqdm
+
+from parfive import Downloader, SessionConfig
 
 
 def _aiohttp_session(config: SessionConfig) -> ClientSession:
@@ -213,9 +214,10 @@ def backup_opml(opml: Path, destination: Path = cwd) -> None:
 		opml: Path to OPML file.
 		destination: Path to destination folder, defaults to cwd.
 	"""
+	log.info(f"Backing podcasts from: {opml} to: {destination}")
 	for feed_url in tqdm(parse_opml(Path(opml)), desc="Feeds"):
 		try:
-			backup_feed(feed_url, destination)
+			backup_feed(feed_url, Path(destination))
 		except Exception as e:
 			log.error(f"Failed to backup feed: {feed_url}")
 			log.error(e)
