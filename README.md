@@ -20,6 +20,6 @@ Features:
 
 Usage:
 
-`python3 -m backup-podcasts --opml "path_to.opml" --destination "/target/backup/location"`
+`python -m backup_podcasts --opml "path_to.opml" --destination "/target/backup/location"`
 
 Destination is optional, defaults to cwd.
