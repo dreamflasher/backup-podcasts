@@ -8,7 +8,7 @@ Backup/archive all your podcasts.
 
 Insallation:
 
-`pip install podcast-backup`
+`pip install backup-podcasts`
 
 Features:
 
@@ -20,6 +20,6 @@ Features:
 
 Usage:
 
-`python3 podcast_backup.py --opml "path_to.opml" --destination "/target/backup/location"`
+`python3 -m backup-podcasts --opml "path_to.opml" --destination "/target/backup/location"`
 
 Destination is optional, defaults to cwd.
