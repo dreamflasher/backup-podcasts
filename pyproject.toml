@@ -1,8 +1,14 @@
 [tool.poetry]
 name = "backup-podcasts"
-version = "0.1.0"
+version = "0.1.3"
 description = "Backup/archive all episodes of your podcast subscriptions locally."
 authors = ["DreamFlasher <31695+dreamflasher@users.noreply.github.com>"]
+license = "Apache License 2.0"
+readme = "README.md"
+homepage = "https://github.com/dreamflasher/backup-podcasts"
+repository = "https://github.com/dreamflasher/backup-podcasts"
+keywords = ["backup", "podcast", "archive"]
+include = ["LICENSE",]
 
 [tool.poetry.dependencies]
 python = "^3.9"
