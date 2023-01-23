@@ -4,4 +4,22 @@
 [![Checked with mypy](https://www.mypy-lang.org/static/mypy_badge.svg)](https://mypy-lang.org/)
 [![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=flat&labelColor=ef8336)](https://pycqa.github.io/isort/)
 
-Backup all your podcasts
+Backup/archive all your podcasts.
+
+Insallation:
+
+`pip install podcast-backup`
+
+Features:
+
+* OPML import
+* RSS pagination
+* Backup metadata (RSS, shownotes, cover)
+* Graceful interruption behaviour (no half-downloaded files, even when killed)
+* File-system compatible filename sanization (format: `pubdate - title`)
+
+Usage:
+
+`python3 podcast_backup.py --opml "path_to.opml" --destination "/target/backup/location"`
+
+Destination is optional, defaults to cwd.
