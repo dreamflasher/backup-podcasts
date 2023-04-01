@@ -28,8 +28,8 @@ def _aiohttp_session(config: SessionConfig) -> ClientSession:
 
 
 cwd = Path().absolute()
-asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-dl = Downloader(max_splits=1, overwrite=True, config=SessionConfig(aiohttp_session_generator=_aiohttp_session))
+if sys.platform == 'win32':
+	asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s", handlers=[
 	logging.FileHandler("backup.log", "w", "utf-8"), logging.StreamHandler(sys.stdout)])
 log = logging.getLogger(__name__)
@@ -48,7 +48,7 @@ def sanitize_filename(filename: str, max_file_length_byte: int = 255) -> str:
 	"""
 	filename = " ".join(filename.split())  # replace multiple (non-standard) whitespaces by space
 	replacements = {
-		"/": "\N{division slash}", "\\": "\N{reverse solidus operator}", ":": "\N{ratio}", "*": "\N{low asterisk}", "?": "\N{interrobang}", "\"": "'", "<":
+		"/": "\N{division slash}", "\\": "\N{reverse solidus operator}", ":": "\N{ratio}", "*": "\N{low asterisk}", "?": "\N{fullwidth question mark}", "\"": "'", "<":
 		"\N{canadian syllabics pa}", ">": "\N{canadian syllabics po}", "|": "\N{vertical line extension}"}
 	for old, new in replacements.items():
 		filename = filename.replace(old, new)
@@ -86,7 +86,7 @@ def parse_opml(opml: Path) -> List[str]:
 	return [node.get("xmlUrl") for node in xml_root.findall("*/outline/[@type='rss']") if node.get("xmlUrl") is not None]
 
 
-def backup_metadata(feed_url: str, rss: Dict, destination: Path) -> None:
+def backup_metadata(feed_url: str, rss: Dict, destination: Path, dl: Downloader) -> None:
 	"""
 	Backup metadata from RSS feed.
 
@@ -114,7 +114,7 @@ def backup_metadata(feed_url: str, rss: Dict, destination: Path) -> None:
 	dl.download()
 
 
-def download_episode(episode: Dict, backup_path: Path, backup_meta_path: Path) -> int:
+def download_episode(episode: Dict, backup_path: Path, backup_meta_path: Path, dl: Downloader) -> int:
 	"""
 	Download episode from URL.
 
@@ -140,13 +140,19 @@ def download_episode(episode: Dict, backup_path: Path, backup_meta_path: Path) -
 		episode_metadata.pop('links', None)
 
 	date_string = time.strftime("%Y-%m-%d", episode_metadata['published_parsed'])
-	extension = episode_metadata['link'].rsplit(".", 1)[1].split("?")[0]
+	try:
+		assert(episode_metadata['link'].startswith('http'))
+		extension = episode_metadata['link'].rsplit(".", 1)[1].split("?")[0]
+	except Exception as e:
+		log.error(f"{e} {episode_metadata['link']} {episode} {backup_meta_path}")
+		return 0
+	
 	episode_name = sanitize_filename(f'{date_string} {episode_metadata["title"]}.{extension}')
 
 	if not (backup_path / episode_name).exists():
 		try:
 			(backup_meta_path / sanitize_filename(episode_name + ".json")).write_text(json.dumps(episode_metadata))
-			# download to meta folder and move later in case download was succesful, to avoid partial files
+			# download to meta folder and move later in case download was successful, to avoid partial files
 			dl.enqueue_file(episode_metadata['link'], backup_meta_path, episode_name)
 		except Exception as e:
 			log.error(f"Failed to download episode: {(backup_path / episode_name)}")
@@ -164,11 +170,14 @@ def backup_feed(feed_url: str, destination: Path) -> None:
 		feed_url: Feed URL.
 		destination: Path to destination folder.
 	"""
+	dl = Downloader(max_splits=1, overwrite=True, config=SessionConfig(aiohttp_session_generator=_aiohttp_session))
 	rss: Dict = feedparser.parse(feed_url)
-	title = rss["feed"]["title"]
+	title = rss["feed"].get("title", None)
+	if title is None:
+		log.error(f"Failed to parse feed, likely offline: {feed_url}")
+		return
 	log.info(f'Backup feed: {title} ({feed_url})')
 	backup_path = destination / sanitize_filename(title)
-	backup_path.mkdir(parents=True, exist_ok=True)
 	backup_meta_path = backup_path / "meta"
 	backup_meta_path.mkdir(parents=True, exist_ok=True)
 
@@ -177,7 +186,7 @@ def backup_feed(feed_url: str, destination: Path) -> None:
 	while feed_url_next_page:
 		episodes = rss.get('entries', False) or rss.get('items', False)
 		if episodes:
-			new_episodes += sum(download_episode(episode, backup_path, backup_meta_path) for episode in episodes)
+			new_episodes += sum(download_episode(episode, backup_path, backup_meta_path, dl) for episode in episodes)
 		next_pages = [link['href'] for link in rss['feed']['links'] if link['rel'] == 'next']
 		if len(next_pages) > 0:
 			feed_url_next_page = next_pages[0]
@@ -190,8 +199,11 @@ def backup_feed(feed_url: str, destination: Path) -> None:
 		for error in download_results.errors:
 			log.error(error)
 		for completed in download_results:
-			Path(completed).rename(backup_path / Path(completed).name)
-		backup_metadata(feed_url, rss, backup_meta_path)
+			try:
+				Path(completed).rename(backup_path / Path(completed).name)
+			except Exception as e:
+				log.error(f"Failed to rename: {e}")
+		backup_metadata(feed_url, rss, backup_meta_path, dl)
 
 
 def tqdm_updater(progress_bar: Any) -> None:
@@ -219,8 +231,7 @@ def backup_opml(opml: Path, destination: Path = cwd) -> None:
 		try:
 			backup_feed(feed_url, Path(destination))
 		except Exception as e:
-			log.error(f"Failed to backup feed: {feed_url}")
-			log.error(e)
+			log.error(f"Failed to backup feed: {feed_url} ({e})")
 
 
 if __name__ == "__main__":
