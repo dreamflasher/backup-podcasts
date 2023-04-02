@@ -17,6 +17,7 @@ Features:
 * Backup metadata (RSS, shownotes, cover)
 * Graceful interruption behaviour (no half-downloaded files, even when killed)
 * File-system compatible filename sanization (format: `pubdate - title`)
+* Download all related files (transcripts, videos, etc.)
 
 Usage:
 
