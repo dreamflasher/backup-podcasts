@@ -126,34 +126,34 @@ def download_episode(episode: Dict, backup_path: Path, backup_meta_path: Path, d
 	Returns:
 		1 if episode is new, else 0.
 	"""
-	episode_metadata = {}
-	for field in episode.keys():
-		episode_metadata[field] = episode.get(field, None)
+	date_string = time.strftime("%Y-%m-%d", episode['published_parsed'])
+	base_name = f'{date_string} {episode["title"]}'
+	links = []
 
-	if episode_metadata.get('links', None):
-		for link in episode_metadata['links']:
-			if link.get('type', None):
-				if 'audio' in link.get('type', None):
-					episode_metadata['link'] = link.get('href', None)
-					break
+	if episode.get('links', None):
+		for link in episode['links']:
+			if link.get('href', "").startswith('http'):
+				if link.get('rel', None) == "enclosure":
+					episode['link'] = link['href']
+				elif link.get('title', None):
+					links.append(link['href'])
 
-		episode_metadata.pop('links', None)
-
-	date_string = time.strftime("%Y-%m-%d", episode_metadata['published_parsed'])
 	try:
-		assert(episode_metadata['link'].startswith('http'))
-		extension = episode_metadata['link'].rsplit(".", 1)[1].split("?")[0]
+		assert(episode['link'].startswith('http'))
+		extension = episode['link'].rsplit(".", 1)[1].split("?")[0]
 	except Exception as e:
-		log.error(f"{e} {episode_metadata['link']} {episode} {backup_meta_path}")
+		log.error(f"{e} {episode['link']} {episode} {backup_meta_path}")
 		return 0
 	
-	episode_name = sanitize_filename(f'{date_string} {episode_metadata["title"]}.{extension}')
+	episode_name = sanitize_filename(f'{base_name}.{extension}')
 
 	if not (backup_path / episode_name).exists():
 		try:
-			(backup_meta_path / sanitize_filename(episode_name + ".json")).write_text(json.dumps(episode_metadata))
+			(backup_meta_path / sanitize_filename(base_name + ".json")).write_text(json.dumps(episode))
 			# download to meta folder and move later in case download was successful, to avoid partial files
-			dl.enqueue_file(episode_metadata['link'], backup_meta_path, episode_name)
+			dl.enqueue_file(episode['link'], backup_meta_path, episode_name)
+			for link in links:
+				dl.enqueue_file(link, backup_meta_path, sanitize_filename(f'{base_name} {link.split("/")[-1].split("?")[0]}'))
 		except Exception as e:
 			log.error(f"Failed to download episode: {(backup_path / episode_name)}")
 			log.error(e)
