@@ -135,7 +135,7 @@ def download_episode(episode: Dict, backup_path: Path, backup_meta_path: Path, d
 			if link.get('href', "").startswith('http'):
 				if link.get('rel', None) == "enclosure":
 					episode['link'] = link['href']
-				elif link.get('title', None):
+				elif link.get('title', None) or link.get('type', None) != "text/html":
 					links.append(link['href'])
 
 	try:
