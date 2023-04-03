@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "backup-podcasts"
-version = "0.1.4"
+version = "0.2"
 description = "Backup/archive all episodes of your podcast subscriptions locally."
 authors = ["DreamFlasher <31695+dreamflasher@users.noreply.github.com>"]
 license = "Apache License 2.0"
