@@ -164,7 +164,7 @@ def download_episode(episode: Dict, backup_path: Path, backup_meta_path: Path, d
 
 def backup_feed(feed_url: str, destination: Path) -> None:
 	"""
-	Backup podcast from feed url.
+	Backup podcast from feed url. This will create a subfolder in the destination path, based on the info in url2folder.json, defaulting to the title.
 
 	Args:
 		feed_url: Feed URL.
@@ -177,7 +177,14 @@ def backup_feed(feed_url: str, destination: Path) -> None:
 		log.error(f"Failed to parse feed, likely offline: {feed_url}")
 		return
 	log.info(f'Backup feed: {title} ({feed_url})')
-	backup_path = destination / sanitize_filename(title)
+	url2folder_file = Path(destination / "url2folder.json")
+	url2folder = {}
+	if url2folder_file.exists():
+		url2folder = json.loads(url2folder_file.read_text())
+	if feed_url not in url2folder:
+		url2folder[feed_url] = sanitize_filename(title)
+		url2folder_file.write_text(json.dumps(url2folder, indent=1))
+	backup_path = destination / url2folder[feed_url]
 	backup_meta_path = backup_path / "meta"
 	backup_meta_path.mkdir(parents=True, exist_ok=True)
 
